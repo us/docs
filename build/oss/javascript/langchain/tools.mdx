@@ -8,6 +8,7 @@ import ToolReturnObjectPy from '/snippets/code-samples/tool-return-object-py.mdx
 import ToolReturnObjectJs from '/snippets/code-samples/tool-return-object-js.mdx';
 import ToolReturnCommandPy from '/snippets/code-samples/tool-return-command-py.mdx';
 import ToolReturnCommandJs from '/snippets/code-samples/tool-return-command-js.mdx';
+import ToolUpdateStatePy from '/snippets/code-samples/tool-update-state-py.mdx';
 
 Tools extend what [agents](/oss/javascript/langchain/agents) can do—letting them fetch real-time data, execute code, query external databases, and take actions in the world.
 
@@ -89,7 +90,7 @@ const contextSchema = z.object({
 });
 
 const agent = createAgent({
-  model: new ChatOpenAI({ model: "gpt-4.1" }),
+  model: new ChatOpenAI({ model: "gpt-5.4" }),
   tools: [getUserName],
   contextSchema,
 });
@@ -158,7 +159,7 @@ const saveUserInfo = tool(
 );
 
 const agent = createAgent({
-  model: new ChatOpenAI({ model: "gpt-4.1" }),
+  model: new ChatOpenAI({ model: "gpt-5.4" }),
   tools: [getUserInfo, saveUserInfo],
   store,
 });
@@ -223,6 +224,78 @@ const getWeather = tool(
 );
 ```
 
+
+
+### Execution info
+
+Access thread ID, run ID, and retry state from within a tool via `runtime.execution_info`:
+
+
+
+```ts
+import { tool } from "langchain";
+import * as z from "zod";
+
+const logExecutionContext = tool(
+  async (_input, runtime) => {
+    const info = runtime.executionInfo;
+    console.log(`Thread: ${info.threadId}, Run: ${info.runId}`);  // [!code highlight]
+    console.log(`Attempt: ${info.nodeAttempt}`);
+    return "done";
+  },
+  {
+    name: "log_execution_context",
+    description: "Log execution identity information.",
+    schema: z.object({}),
+  }
+);
+```
+
+
+
+
+<Note>
+Requires `deepagents>=1.9.0` (or `@langchain/langgraph>=1.2.8`).
+</Note>
+
+
+### Server info
+
+When your tool runs on LangGraph Server, access the assistant ID, graph ID, and authenticated user via `runtime.server_info`:
+
+
+
+```ts
+import { tool } from "langchain";
+import * as z from "zod";
+
+const getAssistantScopedData = tool(
+  async (_input, runtime) => {
+    const server = runtime.serverInfo;
+    if (server != null) {
+      console.log(`Assistant: ${server.assistantId}, Graph: ${server.graphId}`);  // [!code highlight]
+      if (server.user != null) {
+        console.log(`User: ${server.user.identity}`);  // [!code highlight]
+      }
+    }
+    return "done";
+  },
+  {
+    name: "get_assistant_scoped_data",
+    description: "Fetch data scoped to the current assistant.",
+    schema: z.object({}),
+  }
+);
+```
+
+`serverInfo` is `null` when the tool is not running on LangGraph Server.
+
+
+
+
+<Note>
+Requires `deepagents>=1.9.0` (or `@langchain/langgraph>=1.2.8`).
+</Note>
 
 
 ## ToolNode

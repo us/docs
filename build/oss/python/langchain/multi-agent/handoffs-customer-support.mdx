@@ -372,10 +372,10 @@ Test the complete workflow:
 
 ```python
 from langchain.messages import HumanMessage
-import uuid
+from langchain_core.utils.uuid import uuid7
 
 # Configuration for this conversation thread
-thread_id = str(uuid.uuid4())
+thread_id = str(uuid7())
 config = {"configurable": {"thread_id": thread_id}}
 
 # Turn 1: Initial message - starts with warranty_collector step
@@ -497,7 +497,7 @@ agent = create_agent(
     middleware=[
         apply_step_config,
         SummarizationMiddleware(  # [!code highlight]
-            model="gpt-4.1-mini",
+            model="gpt-5.4-mini",
             trigger=("tokens", 4000),
             keep=("messages", 10)
         )
@@ -595,7 +595,7 @@ A single agent dynamically changes its behavior based on the current_step state,
 creating a state machine for sequential information collection.
 """
 
-import uuid
+from langchain_core.utils.uuid import uuid7
 
 from langgraph.checkpoint.memory import InMemorySaver
 from langgraph.types import Command
@@ -608,7 +608,7 @@ from langchain.chat_models import init_chat_model
 from langchain.messages import HumanMessage, ToolMessage
 from langchain.tools import tool, ToolRuntime
 
-model = init_chat_model("anthropic:claude-3-5-sonnet-latest")
+model = init_chat_model("google_genai:gemini-3.1-pro-preview")
 
 
 # Define the possible workflow steps
@@ -779,7 +779,7 @@ agent = create_agent(
     middleware=[
         apply_step_config,
         SummarizationMiddleware(
-            model="gpt-4.1-mini",
+            model="gpt-5.4-mini",
             trigger=("tokens", 4000),
             keep=("messages", 10)
         )
@@ -793,7 +793,7 @@ agent = create_agent(
 # ============================================================================
 
 if __name__ == "__main__":
-    thread_id = str(uuid.uuid4())
+    thread_id = str(uuid7())
     config = {"configurable": {"thread_id": thread_id}}
 
     result = agent.invoke(

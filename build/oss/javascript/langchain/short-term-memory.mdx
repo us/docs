@@ -97,7 +97,7 @@ const stateExtensionMiddleware = createMiddleware({
 
 const checkpointer = new MemorySaver();
 const agent = createAgent({
-    model: "gpt-5",
+    model: "gpt-5.4",
     tools: [],
     middleware: [stateExtensionMiddleware],  // [!code highlight]
     checkpointer,
@@ -175,7 +175,7 @@ const trimMessages = createMiddleware({
 
 const checkpointer = new MemorySaver();
 const agent = createAgent({
-  model: "gpt-4.1",
+  model: "gpt-5.4",
   tools: [],
   middleware: [trimMessages],
   checkpointer,
@@ -243,7 +243,7 @@ const deleteOldMessages = createMiddleware({
 });
 
 const agent = createAgent({
-  model: "gpt-4.1",
+  model: "gpt-5.4",
   tools: [],
   systemPrompt: "Please be concise and to the point.",
   middleware: [deleteOldMessages],
@@ -307,11 +307,11 @@ import { MemorySaver } from "@langchain/langgraph";
 const checkpointer = new MemorySaver();
 
 const agent = createAgent({
-  model: "gpt-4.1",
+  model: "gpt-5.4",
   tools: [],
   middleware: [
     summarizationMiddleware({
-      model: "gpt-4.1-mini",
+      model: "gpt-5.4-mini",
       trigger: { tokens: 4000 },
       keep: { messages: 20 },
     }),

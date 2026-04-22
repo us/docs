@@ -30,8 +30,8 @@ LangGraph provides three ways to manage context, which combines the mutability a
 | Context type                                                                                | Description                                            | Mutability | Lifetime           | Access method                           |
 | ------------------------------------------------------------------------------------------- | ------------------------------------------------------ | ---------- | ------------------ | --------------------------------------- |
 | [**Static runtime context**](#static-runtime-context)                                       | User metadata, tools, db connections passed at startup | Static     | Single run         | `context` argument to `invoke`/`stream` |
-| [**Dynamic runtime context (state)**](#dynamic-runtime-context-state)                       | Mutable data that evolves during a single run          | Dynamic    | Single run         | LangGraph state object                  |
-| [**Dynamic cross-conversation context (store)**](#dynamic-cross-conversation-context-store) | Persistent data shared across conversations            | Dynamic    | Cross-conversation | LangGraph store                         |
+| [**Dynamic runtime context (state)**](#dynamic-runtime-context)                             | Mutable data that evolves during a single run          | Dynamic    | Single run         | LangGraph state object                  |
+| [**Dynamic cross-conversation context (store)**](#dynamic-cross-conversation-context)       | Persistent data shared across conversations            | Dynamic    | Cross-conversation | LangGraph store                         |
 
 ## Static runtime context
 
@@ -89,7 +89,7 @@ graph.invoke(
         ...
 ```
 
-    * See [the Graph API](/oss/python/langgraph/graph-api#add-runtime-configuration) for details.
+    * See [the Graph API](/oss/python/langgraph/use-graph-api#add-runtime-configuration) for details.
     </Tab>
     <Tab title="In a tool">
     ```python
@@ -103,7 +103,7 @@ graph.invoke(
         return email
 ```
 
-    See the [tool calling guide](/oss/python/langchain/tools#configuration) for details.
+    See the [tool calling guide](/oss/python/langchain/tools#context) for details.
     </Tab>
 </Tabs>
 
@@ -115,7 +115,6 @@ graph.invoke(
 
 
 
-<a id="state"></a>
 ## Dynamic runtime context
 
 **Dynamic runtime context** represents mutable data that can evolve during a single run and is managed through the LangGraph state object. This includes conversation history, intermediate results, and values derived from tools or LLM outputs. In LangGraph, the state object acts as [short-term memory](/oss/python/concepts/memory) during a run.
@@ -124,7 +123,9 @@ graph.invoke(
     <Tab title="In an agent">
     Example shows how to incorporate state into an agent **prompt**.
 
-    State can also be accessed by the agent's **tools**, which can read or update the state as needed. See [tool calling guide](/oss/python/langchain/tools#short-term-memory) for details.
+    State can also be accessed by the agent's **tools**, which can read or update the state as needed. See [tool calling guide](/oss/python/langchain/tools#short-term-memory-state) for details.
+
+
 
     ```python
     from langchain.agents import create_agent
@@ -188,8 +189,6 @@ graph.invoke(
     **Turning on memory**
     Please see the [memory guide](/oss/python/langgraph/add-memory) for more details on how to enable memory. This is a powerful feature that allows you to persist the agent's state across multiple invocations. Otherwise, the state is scoped only to a single run.
 </Tip>
-
-<a id="store"></a>
 
 ## Dynamic cross-conversation context
 

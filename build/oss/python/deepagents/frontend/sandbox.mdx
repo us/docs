@@ -18,7 +18,7 @@ import { PatternEmbed } from "/snippets/pattern-embed.jsx";
 
 The sandbox pattern has three layers:
 
-1. **Deep agent with sandbox backend:** The agent gets filesystem tools
+1. **A deep agent with a sandbox backend:** The agent gets filesystem tools
    (`read_file`, `write_file`, `edit_file`, `execute`) automatically from the
    sandbox
 
@@ -71,7 +71,7 @@ lives, and how it's resolved at runtime.
 ### Thread-scoped sandbox (recommended)
 
 Each LangGraph thread gets its own sandbox. The sandbox ID is stored in the
-thread's metadata and resolved via the backend factory's `runtime.configurable.thread_id`.
+thread's metadata and resolved at runtime via `getConfig()`.
 This is the recommended approach for most applications:
 
 - Conversations are isolated — file changes in one thread don't affect another
@@ -101,7 +101,7 @@ sequenceDiagram
 
     Note over FE: User sends message
     FE->>LG: POST /threads/:threadId/runs/stream
-    LG->>LG: backend factory reads thread_id from runtime
+    LG->>LG: backend reads thread_id from config
     LG->>SB: connect to same sandbox
 ```
 
@@ -112,8 +112,11 @@ persistent project environments where you want changes to carry across
 conversations:
 
 ```python
-def sandbox_backend_factory(runtime):
-    assistant_id = runtime.config.get("configurable", {}).get("assistant_id")
+from langgraph.config import get_config
+
+def get_sandbox_backend_for_assistant():
+    config = get_config()
+    assistant_id = config.get("metadata", {}).get("assistant_id")
     return get_or_create_sandbox_for_assistant(assistant_id)
 ```
 
@@ -127,8 +130,11 @@ Each user gets their own sandbox across all threads. Requires custom
 authentication and user identification:
 
 ```python
-def sandbox_backend_factory(runtime):
-    user_id = runtime.config.get("configurable", {}).get("user_id")
+from langgraph.config import get_config
+
+def get_sandbox_backend_for_user():
+    config = get_config()
+    user_id = config.get("configurable", {}).get("user_id")
     return get_or_create_sandbox_for_user(user_id)
 ```
 
@@ -169,7 +175,7 @@ from deepagents import create_deep_agent
 from deepagents.sandbox import LangSmithSandbox  # or DaytonaSandbox, etc.
 
 sandbox = LangSmithSandbox.create()
-agent = create_deep_agent(model="anthropic:claude-sonnet-4-5", backend=sandbox)
+agent = create_deep_agent(model="google_genai:gemini-3.1-pro-preview", backend=sandbox)
 ```
 
 
@@ -180,30 +186,33 @@ The agent automatically gets filesystem tools (`read_file`, `write_file`,
 `edit_file`, `ls`, `glob`, `grep`) and an `execute` tool for running shell
 commands. No tool configuration needed.
 
-### Use a backend factory for thread-scoped sandboxes
+### Resolve a sandbox per thread
 
 Instead of creating a sandbox at module level (which would be shared across
-all threads and may expire), use a **backend factory** that resolves the
-
-:
-sandbox per-thread at runtime. The factory receives a `BackendRuntime` object
-with `configurable.thread_id` from the current LangGraph run:
+all threads and may expire), resolve the sandbox per-thread at runtime. The sandbox reads `thread_id` from the LangGraph config via `getConfig()`:
 
 
 
 ```python
 from deepagents import create_deep_agent
 from deepagents.sandbox import LangSmithSandbox
+from langgraph.config import get_config
 
-def sandbox_backend_factory(runtime):
-    thread_id = runtime.config.get("configurable", {}).get("thread_id")
-    if not thread_id:
-        raise ValueError("No thread_id — agent must run on a thread")
-    return get_or_create_sandbox_for_thread(thread_id)
+
+def get_or_create_sandbox_for_thread(thread_id: str) -> LangSmithSandbox:
+    # Look up or create sandbox based on thread_id
+    ...
+
+
+sandbox = LangSmithSandbox(
+    resolve=lambda: get_or_create_sandbox_for_thread(
+        get_config()["configurable"]["thread_id"]
+    ),
+)
 
 agent = create_deep_agent(
-    model="anthropic:claude-sonnet-4-5",
-    backend=sandbox_backend_factory,
+    model="google_genai:gemini-3.1-pro-preview",
+    backend=sandbox,
 )
 ```
 
@@ -257,7 +266,7 @@ ensures the frontend always accesses the correct sandbox for the current
 conversation, using the same `get_or_create_sandbox_for_thread` function as the
 
 
-agent's backend factory:
+agent's backend:
 
 
 
@@ -303,7 +312,7 @@ async def read_file(
 
 
 <Note>
-  Both the agent's backend factory and the API server call the same
+  Both the agent's backend and the API server call the same
   `get_or_create_sandbox_for_thread` function. This ensures they always resolve
 
 
@@ -754,13 +763,11 @@ A sandbox is the right choice when:
 ## Best practices
 
 - **Use thread-scoped sandboxes** for production apps. Store the sandbox ID in
-  thread metadata and resolve it via the backend factory's
-  `runtime.configurable.thread_id`. This avoids module-level state and keeps
-  sandboxes isolated per conversation.
-- **Share `getOrCreateSandboxForThread`** between the agent backend factory
-  and the API server. Both should resolve the sandbox the same way — via
-  thread metadata — so there's a single source of truth with no in-memory
-  caches.
+  thread metadata and resolve it via `getConfig()` at runtime. This avoids
+  module-level state and keeps sandboxes isolated per conversation.
+- **Share `getOrCreateSandboxForThread`** between the agent backend and the
+  API server. Both should resolve the sandbox the same way — via thread
+  metadata — so there's a single source of truth with no in-memory caches.
 - **Persist `threadId` in `sessionStorage`** so page reloads reconnect to the
   same thread and sandbox instead of creating new ones.
 - **Sync files on every relevant tool call**, not just when the run finishes. This

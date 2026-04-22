@@ -380,7 +380,7 @@ const allTools = [
 
 // Initialize the model
 const model = new ChatOpenAI({
-  model: "gpt-4.1-mini",
+  model: "gpt-5.4-mini",
   temperature: 0.7,
 });
 
@@ -407,10 +407,10 @@ Test the complete workflow:
 
 ```typescript
 import { HumanMessage } from "@langchain/core/messages";
-import { v4 as uuidv4 } from "uuid";
+import { v7 as uuid7 } from "uuid";
 
 // Configuration for this conversation thread
-const threadId = uuidv4();
+const threadId = uuid7();
 const config = { configurable: { thread_id: threadId } };
 
 // Turn 1: Initial message - starts with warranty_collector step
@@ -539,7 +539,7 @@ const agent = createAgent({
   middleware: [
     applyStepMiddleware,
     new SummarizationMiddleware({  // [!code highlight]
-      model: "gpt-4.1-mini",
+      model: "gpt-5.4-mini",
       trigger: { tokens: 4000 },
       keep: { messages: 10 },
     }),
@@ -845,7 +845,7 @@ const allTools = [
 ];
 
 const model = new ChatOpenAI({
-  model: "gpt-4.1-mini",
+  model: "gpt-5.4-mini",
 });
 
 // Create the agent with step-based configuration

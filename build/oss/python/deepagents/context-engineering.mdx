@@ -53,7 +53,7 @@ Your custom system prompt is prepended to the built-in system prompt, which incl
 from deepagents import create_deep_agent
 
 agent = create_deep_agent(
-    model="claude-sonnet-4-6",
+    model="google_genai:gemini-3.1-pro-preview",
     system_prompt=(
         "You are a research assistant specializing in scientific literature. "
         "Always cite sources. Use subagents for parallel research on different topics."
@@ -69,7 +69,7 @@ For some use cases you may want a dynamic prompt: for example, to tell the model
 If your prompt depends on context or `runtime.store`, use `@dynamic_prompt` to build context-aware instructions. Your middleware can read `request.runtime.context` and `request.runtime.store`.
 See [Customization](/oss/python/deepagents/customization#middleware) for adding [custom middleware](/oss/python/langchain/middleware) and the [LangChain context engineering](/oss/python/langchain/context-engineering#system-prompt) guide for examples.
 
-You do **not** need middleware when tools alone use context or `runtime.store`; tools receive `config.context` and `runtime.store` directly. Add middleware only when tools should be packaged with an update to the system prompt.
+You do **not** need middleware when tools alone use context or `runtime.store`; tools receive the [ToolRuntime](https://reference.langchain.com/python/langchain/tools/#langchain.tools.ToolRuntime) object (including `runtime.context` and `runtime.store`) directly. Add middleware only when tools should be packaged with an update to the system prompt.
 
 
 
@@ -80,7 +80,7 @@ Memory files ([`AGENTS.md`](https://agents.md/)) provide persistent context that
 
 ```python
 agent = create_deep_agent(
-    model="claude-sonnet-4-6",
+    model="google_genai:gemini-3.1-pro-preview",
     memory=["/project/AGENTS.md", "~/.deepagents/preferences.md"],
 )
 ```
@@ -96,7 +96,7 @@ Skills provide **on-demand** capabilities. The agent reads frontmatter from each
 
 ```python
 agent = create_deep_agent(
-    model="claude-sonnet-4-6",
+    model="google_genai:gemini-3.1-pro-preview",
     skills=["/skills/research/", "/skills/web-search/"],
 )
 ```
@@ -108,7 +108,7 @@ Keep each skill focused on a single workflow or domain; broad or overlapping ski
 
 ### Tool prompts
 
-[Tool](/oss/python/langchain/tools) prompts are instructions that shape how the model uses tools. All tools expose metadata the model sees in its prompt—typically a schema and a description. Tools you pass via the `tools` parameter surface that tool metadata (schema and descriptions) to the model. Deep Agents built-in tools are packaged in middleware and typically also update the system prompt with more guidance for those tools.
+[Tool](/oss/python/langchain/tools) prompts are instructions that shape how the model uses tools. All tools expose metadata the model sees in its prompt—typically a schema and a description. Tools you pass via the `tools` parameter surface that tool metadata (schema and descriptions) to the model. A deep agent's built-in tools are packaged in middleware and typically also update the system prompt with more guidance for those tools.
 
 **Built-in tools** – Middleware that adds harness capabilities (planning, filesystem, subagents) automatically appends tool-specific instructions to the system prompt, creating tool prompts that explain how to use those tools effectively:
 - Planning prompt – Instructions for `write_todos` to maintain a structured task list
@@ -163,33 +163,45 @@ The deep agent's system message—the assembled system prompt the model receives
 
 ## Runtime context
 
-Runtime context is per-run configuration you pass when you invoke the agent. It is not automatically included in the model prompt; the model only sees it if a tool, middleware, or other logic reads it and adds it to messages or the system prompt. Use runtime context for user metadata (IDs, preferences, roles), API keys, database connections, feature flags, or other values your tools and harness need. Tools and subagents receive this context from the `config` argument:
+Runtime context is per-run configuration you pass when you invoke the agent. It is not automatically included in the model prompt; the model only sees it if a tool, middleware, or other logic reads it and adds it to messages or the system prompt. Use runtime context for user metadata (IDs, preferences, roles), API keys, database connections, feature flags, or other values your tools and harness need.
+
+Define the shape of that data with `context_schema`: use a `dataclasses.dataclass` or `typing.TypedDict` class. Pass values with the **`context`** argument to `invoke` / `ainvoke`. See [Runtime](/oss/python/langchain/runtime) and [LangGraph runtime context](/oss/python/langgraph/graph-api#runtime-context) for full detail.
+
+Inside tools, read context from the injected [ToolRuntime](https://reference.langchain.com/python/langchain/tools/#langchain.tools.ToolRuntime):
 
 ```python
-from langchain.agents import tool
+from dataclasses import dataclass
+
+from deepagents import create_deep_agent
+from langchain.tools import tool, ToolRuntime
+
+@dataclass
+class Context:
+    user_id: str
+    api_key: str
 
 @tool
-def fetch_user_data(query: str, config) -> str:
+def fetch_user_data(query: str, runtime: ToolRuntime[Context]) -> str:
     """Fetch data for the current user."""
-    user_id = config.get("context", {}).get("user_id")
+    user_id = runtime.context.user_id
     return f"Data for user {user_id}: {query}"
 
 agent = create_deep_agent(
-    model="claude-sonnet-4-6",
+    model="google_genai:gemini-3.1-pro-preview",
     tools=[fetch_user_data],
-    context_schema={"user_id": str, "api_key": str},
+    context_schema=Context,
 )
 
 result = agent.invoke(
     {"messages": [{"role": "user", "content": "Get my recent activity"}]},
-    config={"context": {"user_id": "user-123", "api_key": "sk-..."}},
+    context=Context(user_id="user-123", api_key="sk-..."),
 )
 ```
 
 
 
 
-Runtime context **propagates to all subagents**. When a subagent runs, it receives the same `config` (including `context`) as the parent. See [Subagents](/oss/python/deepagents/subagents#context-management) for per-subagent context (namespaced keys).
+Runtime context **propagates to all subagents**. When a subagent runs, it receives the same runtime context as the parent. See [Subagents](/oss/python/deepagents/subagents#context-management) for per-subagent context (namespaced keys).
 
 ## Context compression
 
@@ -208,7 +220,7 @@ The following techniques are the built-in mechanisms to ensure the context passe
 
 ### Offloading
 
-Deep Agents use the [built-in filesystem tools](#virtual-filesystem-access) to automatically offload content and to search and retrieve that offloaded content as needed.
+Deep Agents use the [built-in filesystem tools](/oss/python/deepagents/harness#virtual-filesystem-access) to automatically offload content and to search and retrieve that offloaded content as needed.
 Content offloading happens when tool call inputs or results exceed a token threshold (default 20,000):
 
 1. **Tool call inputs exceed 20,000 tokens**: File write and edit operations leave behind tool calls containing the complete file content in the agent's conversation history.
@@ -222,6 +234,8 @@ Content offloading happens when tool call inputs or results exceed a token thres
     ![An example of offloading showing a large tool response that is replaced with a message about the location of the offloaded results and the first 10 lines of the result](/oss/images/deepagents/offloading-results.png)
 
 ### Summarization
+
+
 
 When the context size crosses the model's context window limit (for example 85% of `max_input_tokens`), and there is no more context eligible for offloading, the deep agent summarizes the message history.
 
@@ -238,12 +252,38 @@ This dual approach ensures the agent maintains awareness of its goals and progre
 - Triggers at 85% of the model's `max_input_tokens` from its [model profile](/oss/python/langchain/models#model-profiles)
 - Keeps 10% of tokens as recent context
 - Falls back to 170,000-token trigger / 6 messages kept if model profile is unavailable
-- If any model call raises a standard [ContextOverflowError](https://reference.langchain.com/python/langchain-core/exceptions/ContextOverflowError), Deep Agents immediately falls back to summarization and retries with summary + recent preserved messages
+- If any model call raises a standard [ContextOverflowError](https://reference.langchain.com/python/langchain-core/exceptions/ContextOverflowError), the deep agent immediately falls back to summarization and retry with summary + recent preserved messages
 - Older messages are summarized by the model
+
+<Tip>
+[Streaming tokens](/oss/python/deepagents/streaming#llm-tokens) from the agent will generally include tokens generated by the summarization step. You can filter out these tokens using their associated metadata:
+```python
+for chunk in agent.stream(
+    {"messages": [...]},
+    stream_mode="messages",
+    version="v2",
+):
+    token, metadata = chunk["data"]
+    if metadata.get("lc_source") == "summarization":  # [!code highlight]
+        continue
+    else:
+        ...
+```
+</Tip>
+
+
+
+
 
 ##### Summarization Tool
 
-Deep Agents includes an optional [tool](/oss/python/langchain/tools) for summarization, enabling agents to trigger summarization at opportune times—such as between tasks—instead of at fixed token intervals.
+js
+<Note>
+The summarization tool middleware requires `deepagents>=1.6.0`.
+</Note>
+:::
+
+Deep agents include an optional [tool](/oss/python/langchain/tools) for summarization, enabling agents to trigger summarization at opportune times—such as between tasks—instead of at fixed token intervals.
 
 You can enable this tool by appending it to the middleware list:
 
@@ -256,7 +296,7 @@ from deepagents.middleware.summarization import (
 
 backend = StateBackend  # if using default backend
 
-model = "openai:gpt-5.4"
+model = "google_genai:gemini-3.1-pro-preview"
 agent = create_deep_agent(
     model=model,
     middleware=[  # [!code highlight]
@@ -269,7 +309,7 @@ Enabling this feature does not disable the default summarization action at 85% o
 
 See the [`SummarizationToolMiddleware`](https://reference.langchain.com/python/deepagents/middleware/summarization/SummarizationToolMiddleware) API reference for details.
 
-
+:::
 
 ## Context isolation with subagents
 
@@ -327,7 +367,7 @@ def make_backend(runtime):
     )
 
 agent = create_deep_agent(
-    model="claude-sonnet-4-6",
+    model="google_genai:gemini-3.1-pro-preview",
     store=InMemoryStore(),
     backend=make_backend,
     system_prompt="""When users tell you their preferences, save them to
@@ -344,7 +384,7 @@ For example, you may prompt the agent to store preferences in `/memories/prefere
 The path starts empty and the agent creates files on demand using its filesystem tools (`write_file`, `edit_file`) when users share information worth remembering.
 
 To pre-seed memories, use the [Store API](/langsmith/custom-store) when deploying on LangSmith.
-See [Long-term memory](/oss/python/deepagents/long-term-memory) for setup and use cases.
+See [Long-term memory](/oss/python/deepagents/memory) for setup and use cases.
 
 ## Best practices
 
@@ -359,7 +399,7 @@ See [Long-term memory](/oss/python/deepagents/long-term-memory) for setup and us
 
 - [Harness](/oss/python/deepagents/harness) – Context management overview, offloading, summarization
 - [Subagents](/oss/python/deepagents/subagents) – Context isolation, runtime context propagation
-- [Long-term memory](/oss/python/deepagents/long-term-memory) – Cross-thread persistence
+- [Long-term memory](/oss/python/deepagents/memory) – Cross-thread persistence
 - [Skills](/oss/python/deepagents/skills) – Progressive disclosure and skill authoring
 - [Backends](/oss/python/deepagents/backends) – Filesystem backends and CompositeBackend
 - [Context conceptual overview](/oss/python/concepts/context) – Context types and lifecycle

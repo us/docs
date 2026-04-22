@@ -50,7 +50,7 @@ from langchain.tools import tool
 from langchain.agents import create_agent
 
 # Create a subagent
-subagent = create_agent(model="anthropic:claude-sonnet-4-20250514", tools=[...])
+subagent = create_agent(model="google_genai:gemini-3.1-pro-preview", tools=[...])
 
 # Wrap it as a tool
 @tool("research", description="Research a topic and return findings")
@@ -59,7 +59,7 @@ def call_research_agent(query: str):
     return result["messages"][-1].content
 
 # Main agent with subagent as a tool
-main_agent = create_agent(model="anthropic:claude-sonnet-4-20250514", tools=[call_research_agent])
+main_agent = create_agent(model="google_genai:gemini-3.1-pro-preview", tools=[call_research_agent])
 ```
 
 
@@ -270,12 +270,12 @@ from langchain.agents import create_agent
 
 # Sub-agents developed by different teams
 research_agent = create_agent(
-    model="gpt-4.1",
+    model="gpt-5.4",
     prompt="You are a research specialist..."
 )
 
 writer_agent = create_agent(
-    model="gpt-4.1",
+    model="gpt-5.4",
     prompt="You are a writing specialist..."
 )
 
@@ -306,7 +306,7 @@ def task(
 
 # Main coordinator agent
 main_agent = create_agent(
-    model="gpt-4.1",
+    model="gpt-5.4",
     tools=[task],
     system_prompt=(
         "You coordinate specialized sub-agents. "

@@ -41,7 +41,7 @@ from langgraph.checkpoint.memory import InMemorySaver # [!code highlight]
 
 
 agent = create_agent(
-    model="gpt-4.1",
+    model="gpt-5.4",
     tools=[write_file_tool, execute_sql_tool, read_data_tool],
     middleware=[
         HumanInTheLoopMiddleware( # [!code highlight]
